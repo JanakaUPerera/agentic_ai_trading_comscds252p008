@@ -1,3 +1,4 @@
+from datetime import date, timedelta
 from pathlib import Path
 
 # Base project directory
@@ -33,8 +34,9 @@ CRYPTO_ASSETS = [
 ]
 
 # Data collection date range
-START_DATE = "2021-01-01"
-END_DATE = "2026-03-01"
+START_DATE = "2015-01-01"
+yesterday = date.today() - timedelta(days=1)
+END_DATE = yesterday.strftime("%Y-%m-%d")
 
 # Create required directories automatically
 REQUIRED_DIRS = [
