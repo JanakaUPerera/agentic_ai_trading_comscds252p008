@@ -23,6 +23,8 @@ def main() -> None:
     print("\nCleaned dataset preview:")
     print(cleaned_dataframe.head())
     print(cleaned_dataframe.info())
+    
+    
 
 
 if __name__ == "__main__":
