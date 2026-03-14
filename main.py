@@ -3,6 +3,7 @@ from src.fetch_data import fetch_crypto_data
 from src.preprocess_data import preprocess_crypto_data
 from src.eda import run_eda_pipeline
 from src.features import run_feature_engineering_pipeline
+from src.clustering import run_clustering_pipeline
 
 
 def main() -> None:
@@ -33,6 +34,10 @@ def main() -> None:
     
     print("\nFeatured dataset info:")
     print(featured_dataframe.info())
+    
+    clustered_dataframe = run_clustering_pipeline()
+    print("\nClustered dataset info:")
+    print(clustered_dataframe.info())
 
 if __name__ == "__main__":
     main()
