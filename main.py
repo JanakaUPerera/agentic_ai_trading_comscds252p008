@@ -1,6 +1,7 @@
 from src.config import CRYPTO_ASSETS, END_DATE, START_DATE
 from src.fetch_data import fetch_crypto_data
 from src.preprocess_data import preprocess_crypto_data
+from src.eda import run_eda_pipeline
 
 
 def main() -> None:
@@ -14,18 +15,18 @@ def main() -> None:
         end_date=END_DATE,
     )
 
-    print("Data collection summary:")
-    print(combined_dataframe.head())
+    print("Fetched dataset info:")
     print(combined_dataframe.info())
     
     cleaned_dataframe = preprocess_crypto_data()
     
-    print("\nCleaned dataset preview:")
-    print(cleaned_dataframe.head())
+    print("\nCleaned dataset info:")
     print(cleaned_dataframe.info())
     
+    eda_dataframe = run_eda_pipeline()
     
-
+    print("\nEDA dataset info:")
+    print(eda_dataframe.info())
 
 if __name__ == "__main__":
     main()
