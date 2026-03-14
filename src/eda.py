@@ -545,4 +545,7 @@ def run_eda_pipeline() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    run_eda_pipeline()
+    try:
+        run_eda_pipeline()
+    except Exception as e:
+        print(f"Error during EDA pipeline: {e}")
