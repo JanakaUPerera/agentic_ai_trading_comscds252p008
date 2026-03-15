@@ -6,6 +6,7 @@ from src.features import run_feature_engineering_pipeline
 from src.clustering import run_clustering_pipeline
 from src.retrieve_news_info import run_news_info_retrieval_pipeline
 from src.decision_engine import run_decision_engine_pipeline
+from src.manage_risk import run_risk_management_pipeline
 
 
 def main() -> None:
@@ -49,6 +50,9 @@ def main() -> None:
     print("\nDecision dataset info:")
     print(decision_dataframe.info())
     
+    risk_dataframe = run_risk_management_pipeline()
+    print("\Risk dataset info:")
+    print(risk_dataframe.info())
 
 if __name__ == "__main__":
     main()
