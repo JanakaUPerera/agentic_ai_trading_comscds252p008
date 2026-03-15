@@ -7,6 +7,7 @@ from src.clustering import run_clustering_pipeline
 from src.retrieve_news_info import run_news_info_retrieval_pipeline
 from src.decision_engine import run_decision_engine_pipeline
 from src.manage_risk import run_risk_management_pipeline
+from src.backtest import run_backtesting_pipeline
 
 
 def main() -> None:
@@ -53,6 +54,12 @@ def main() -> None:
     risk_dataframe = run_risk_management_pipeline()
     print("\Risk dataset info:")
     print(risk_dataframe.info())
+    
+    asset_backtest_dataframe, portfolio_backtest_dataframe = run_backtesting_pipeline()
+    print("\Asset backtest dataset info:")
+    print(asset_backtest_dataframe.info())
+    print("\Portfolio backtest dataset info:")
+    print(portfolio_backtest_dataframe.info())
 
 if __name__ == "__main__":
     main()
