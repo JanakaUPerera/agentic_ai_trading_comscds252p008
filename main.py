@@ -5,6 +5,7 @@ from src.eda import run_eda_pipeline
 from src.features import run_feature_engineering_pipeline
 from src.clustering import run_clustering_pipeline
 from src.retrieve_news_info import run_news_info_retrieval_pipeline
+from src.decision_engine import run_decision_engine_pipeline
 
 
 def main() -> None:
@@ -43,6 +44,11 @@ def main() -> None:
     news_dataframe = run_news_info_retrieval_pipeline()
     print("\nNews information dataset info:")
     print(news_dataframe.info())
+    
+    decision_dataframe = run_decision_engine_pipeline()
+    print("\nDecision dataset info:")
+    print(decision_dataframe.info())
+    
 
 if __name__ == "__main__":
     main()

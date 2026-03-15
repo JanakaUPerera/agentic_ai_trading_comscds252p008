@@ -1,0 +1,225 @@
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Tuple
+
+import pandas as pd
+
+from src.config import OUTPUTS_DIR
+
+
+MARKET_NEWS_INPUT_FILE = OUTPUTS_DIR / "market_data_with_news_signal.csv"
+DECISION_OUTPUT_FILE = OUTPUTS_DIR / "market_data_with_decisions.csv"
+DECISION_SUMMARY_FILE = OUTPUTS_DIR / "decision_summary.csv"
+
+
+def load_market_news_data(file_path: Path = MARKET_NEWS_INPUT_FILE) -> pd.DataFrame:
+    """
+    Load the market dataset enriched with news signals.
+    """
+    if not file_path.exists():
+        raise FileNotFoundError(f"Market-news dataset not found: {file_path}")
+
+    dataframe = pd.read_csv(file_path)
+    dataframe["date"] = pd.to_datetime(dataframe["date"], errors="coerce")
+    return dataframe
+
+
+def map_technical_signal_to_score(signal: str) -> int:
+    """
+    Convert technical combined signal to numeric score.
+    """
+    signal_map = {
+        "Buy": 2,
+        "Hold": 0,
+        "Sell": -2,
+    }
+    return signal_map.get(str(signal).strip(), 0)
+
+
+def map_market_impact_to_score(signal: str) -> int:
+    """
+    Convert market impact signal from news into numeric score.
+    """
+    signal_map = {
+        "Positive": 1,
+        "Neutral": 0,
+        "Negative": -1,
+    }
+    return signal_map.get(str(signal).strip(), 0)
+
+
+def map_asset_news_bias_to_score(bias: str) -> int:
+    """
+    Convert asset-level news bias into numeric score.
+    """
+    bias_map = {
+        "Strong Positive": 2,
+        "Positive": 1,
+        "Neutral": 0,
+        "Negative": -1,
+        "Strong Negative": -2,
+    }
+    return bias_map.get(str(bias).strip(), 0)
+
+
+def apply_news_category_penalty(news_signal: str) -> int:
+    """
+    Apply category-aware penalty or adjustment based on the dominant news type.
+    Security and strongly negative regulatory news should reduce trading confidence.
+    """
+    signal = str(news_signal).strip()
+
+    if signal == "Security":
+        return -2
+    if signal == "Regulatory":
+        return -1
+    if signal == "Bearish":
+        return -1
+    if signal == "Bullish":
+        return 1
+
+    return 0
+
+
+def derive_directional_news_bonus(score: float) -> int:
+    """
+    Convert directional weighted news score into a compact bonus.
+    """
+    if score >= 5:
+        return 2
+    if score >= 2:
+        return 1
+    if score <= -5:
+        return -2
+    if score <= -2:
+        return -1
+    return 0
+
+
+def calculate_decision_components(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create component scores used by the decision engine.
+    """
+    dataframe = dataframe.copy()
+
+    dataframe["technical_score"] = dataframe["combined_signal"].apply(map_technical_signal_to_score)
+    dataframe["market_impact_score"] = dataframe["market_impact_signal"].apply(map_market_impact_to_score)
+    dataframe["news_bias_score"] = dataframe["asset_news_bias"].apply(map_asset_news_bias_to_score)
+    dataframe["news_category_adjustment"] = dataframe["news_signal"].apply(apply_news_category_penalty)
+    dataframe["directional_news_bonus"] = dataframe["directional_news_score_sum"].apply(derive_directional_news_bonus)
+
+    dataframe["decision_score"] = (
+        dataframe["technical_score"]
+        + dataframe["market_impact_score"]
+        + dataframe["news_bias_score"]
+        + dataframe["news_category_adjustment"]
+        + dataframe["directional_news_bonus"]
+    )
+
+    return dataframe
+
+
+def apply_decision_rules(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Apply final Buy/Sell/Hold decision rules.
+    """
+    dataframe = dataframe.copy()
+
+    conditions = []
+
+    for _, row in dataframe.iterrows():
+        decision_score = row["decision_score"]
+        combined_signal = str(row["combined_signal"]).strip()
+        news_signal = str(row["news_signal"]).strip()
+        market_impact_signal = str(row["market_impact_signal"]).strip()
+        asset_news_bias = str(row["asset_news_bias"]).strip()
+
+        if news_signal == "Security":
+            final_decision = "Sell"
+            decision_reason = "Security-related news risk overrides other signals."
+        elif news_signal == "Regulatory" and market_impact_signal == "Negative":
+            final_decision = "Sell"
+            decision_reason = "Negative regulatory pressure supports a sell action."
+        elif combined_signal == "Buy" and decision_score >= 3:
+            final_decision = "Buy"
+            decision_reason = "Technical indicators and news signals align positively."
+        elif combined_signal == "Sell" and decision_score <= -3:
+            final_decision = "Sell"
+            decision_reason = "Technical indicators and news signals align negatively."
+        elif combined_signal == "Buy" and asset_news_bias in {"Negative", "Strong Negative"}:
+            final_decision = "Hold"
+            decision_reason = "Positive technical signal is weakened by negative news bias."
+        elif combined_signal == "Sell" and asset_news_bias in {"Positive", "Strong Positive"}:
+            final_decision = "Hold"
+            decision_reason = "Negative technical signal is softened by positive news bias."
+        elif decision_score >= 2:
+            final_decision = "Buy"
+            decision_reason = "Overall combined decision score is sufficiently positive."
+        elif decision_score <= -2:
+            final_decision = "Sell"
+            decision_reason = "Overall combined decision score is sufficiently negative."
+        else:
+            final_decision = "Hold"
+            decision_reason = "Signals are mixed or not strong enough for action."
+
+        conditions.append((final_decision, decision_reason))
+
+    dataframe["final_decision"] = [item[0] for item in conditions]
+    dataframe["decision_reason"] = [item[1] for item in conditions]
+
+    return dataframe
+
+
+def summarize_decisions(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Summarize final decisions by ticker.
+    """
+    summary = (
+        dataframe.groupby(["ticker", "final_decision"])
+        .size()
+        .reset_index(name="count")
+        .sort_values(by=["ticker", "count"], ascending=[True, False])
+    )
+    return summary
+
+
+def save_decision_outputs(dataframe: pd.DataFrame) -> Tuple[Path, Path]:
+    """
+    Save row-level decisions and summary.
+    """
+    dataframe.to_csv(DECISION_OUTPUT_FILE, index=False)
+    print(f"Saved decision dataset to {DECISION_OUTPUT_FILE}")
+
+    summary = summarize_decisions(dataframe)
+    summary.to_csv(DECISION_SUMMARY_FILE, index=False)
+    print(f"Saved decision summary to {DECISION_SUMMARY_FILE}")
+
+    return DECISION_OUTPUT_FILE, DECISION_SUMMARY_FILE
+
+
+def run_decision_engine_pipeline() -> pd.DataFrame:
+    """
+    Run the full decision engine pipeline.
+    """
+    print("Loading market dataset with news signals...")
+    dataframe = load_market_news_data()
+
+    print("Calculating decision components...")
+    dataframe = calculate_decision_components(dataframe)
+
+    print("Applying final decision rules...")
+    dataframe = apply_decision_rules(dataframe)
+
+    print("Saving decision outputs...")
+    save_decision_outputs(dataframe)
+
+    print("Decision engine pipeline completed successfully.")
+    return dataframe
+
+
+if __name__ == "__main__":
+    try:
+        run_decision_engine_pipeline()
+    except Exception as e:
+        print(f"Error running decision engine pipeline: {e}")
