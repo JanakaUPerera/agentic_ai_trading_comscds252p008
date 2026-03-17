@@ -1,3 +1,5 @@
+from src.cloud_rds import upload_project_tables_to_rds
+from src.cloud_s3 import upload_project_outputs_to_s3
 from src.config import CRYPTO_ASSETS, END_DATE, START_DATE
 from src.fetch_data import fetch_crypto_data
 from src.preprocess_data import preprocess_crypto_data
@@ -60,6 +62,14 @@ def main() -> None:
     print(asset_backtest_dataframe.info())
     print("\Portfolio backtest dataset info:")
     print(portfolio_backtest_dataframe.info())
+
+    print("\nUploading files to AWS S3...")
+    upload_project_outputs_to_s3()
+
+    print("\nUploading structured summaries to AWS RDS...")
+    upload_project_tables_to_rds()
+
+    print("\nFull workflow including cloud integration completed successfully.")
 
 if __name__ == "__main__":
     main()

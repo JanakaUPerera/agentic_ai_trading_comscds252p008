@@ -1,5 +1,9 @@
 from datetime import date, timedelta
 from pathlib import Path
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Base project directory
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -37,6 +41,19 @@ CRYPTO_ASSETS = [
 START_DATE = "2015-01-01"
 yesterday = date.today() - timedelta(days=1)
 END_DATE = yesterday.strftime("%Y-%m-%d")
+
+# AWS config
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_DEFAULT_REGION = os.getenv("AWS_DEFAULT_REGION", "ap-south-1")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+
+# RDS config
+RDS_HOST = os.getenv("RDS_HOST")
+RDS_PORT = os.getenv("RDS_PORT", "5432")
+RDS_DBNAME = os.getenv("RDS_DBNAME")
+RDS_USER = os.getenv("RDS_USER")
+RDS_PASSWORD = os.getenv("RDS_PASSWORD")
 
 # Create required directories automatically
 REQUIRED_DIRS = [
