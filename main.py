@@ -54,13 +54,13 @@ def main() -> None:
     print(decision_dataframe.info())
     
     risk_dataframe = run_risk_management_pipeline()
-    print("\Risk dataset info:")
+    print("\nRisk dataset info:")
     print(risk_dataframe.info())
     
     asset_backtest_dataframe, portfolio_backtest_dataframe = run_backtesting_pipeline()
-    print("\Asset backtest dataset info:")
+    print("\nAsset backtest dataset info:")
     print(asset_backtest_dataframe.info())
-    print("\Portfolio backtest dataset info:")
+    print("\nPortfolio backtest dataset info:")
     print(portfolio_backtest_dataframe.info())
 
     print("\nUploading files to AWS S3...")
