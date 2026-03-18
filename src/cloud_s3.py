@@ -21,7 +21,7 @@ from src.config import (
 def create_s3_client():
     """
     Create and return an S3 client.
-    Uses IAM role when running on EC2, or env vars if provided.
+    Uses IAM role automatically on EC2 if access keys are not provided.
     """
     if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY:
         return boto3.client(
@@ -30,13 +30,8 @@ def create_s3_client():
             aws_access_key_id=AWS_ACCESS_KEY_ID,
             aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
         )
-    elif AWS_DEFAULT_REGION:
-        return boto3.client(
-            "s3",
-            region_name=AWS_DEFAULT_REGION
-        )
-    else:
-        raise ValueError("Missing AWS S3 credentials or bucket name in environment variables.")
+
+    return boto3.client("s3", region_name=AWS_DEFAULT_REGION)
 
 
 def collect_files_for_upload() -> list[Path]:
@@ -68,17 +63,19 @@ def build_s3_key(file_path: Path) -> str:
     return str(relative_path).replace("\\", "/")
 
 
-def upload_file_to_s3(file_path: Path, bucket_name: str, s3_key: str) -> None:
+def upload_file_to_s3(file_path: Path, bucket_name: str, s3_key: str) -> str:
     """
-    Upload a single file to S3.
+    Upload a single file to S3 and return the S3 URI.
     """
     client = create_s3_client()
 
     try:
         client.upload_file(str(file_path), bucket_name, s3_key)
-        print(f"Uploaded {file_path} to s3://{bucket_name}/{s3_key}")
+        s3_uri = f"s3://{bucket_name}/{s3_key}"
+        print(f"Uploaded {file_path} to {s3_uri}")
+        return s3_uri
     except (BotoCoreError, ClientError) as error:
-        print(f"Failed to upload {file_path}: {error}")
+        raise RuntimeError(f"Failed to upload {file_path}: {error}") from error
 
 
 def upload_project_outputs_to_s3() -> None:
