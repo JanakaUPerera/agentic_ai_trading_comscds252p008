@@ -100,6 +100,51 @@ def upload_project_outputs_to_s3() -> None:
     print("S3 upload completed.")
 
 
+def generate_presigned_download_url(
+    s3_key: str,
+    expiration_seconds: int = 86400,
+) -> str:
+    """
+    Generate a temporary presigned download URL for an S3 object.
+    Default expiry: 24 hours.
+    """
+    client = create_s3_client()
+
+    try:
+        url = client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": S3_BUCKET_NAME,
+                "Key": s3_key,
+            },
+            ExpiresIn=expiration_seconds,
+        )
+        return url
+    except (BotoCoreError, ClientError) as error:
+        raise RuntimeError(f"Failed to generate presigned URL for {s3_key}: {error}") from error
+
+
+def upload_bundle_and_get_link(
+    bundle_file: Path = OUTPUTS_DIR / "final_analysis_bundle.zip",
+    expiration_seconds: int = 86400,
+) -> tuple[str, str]:
+    """
+    Upload the final ZIP bundle and return both S3 URI and presigned URL.
+    """
+    if not bundle_file.exists():
+        raise FileNotFoundError(f"Bundle file not found: {bundle_file}")
+
+    s3_key = build_s3_key(bundle_file)
+    s3_uri = upload_file_to_s3(bundle_file, S3_BUCKET_NAME, s3_key)
+    presigned_url = generate_presigned_download_url(
+        s3_key=s3_key,
+        expiration_seconds=expiration_seconds,
+    )
+
+    print(f"Generated presigned URL for bundle: {s3_key}")
+    return s3_uri, presigned_url
+
+
 if __name__ == "__main__":
     try:
         upload_project_outputs_to_s3()

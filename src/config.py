@@ -75,6 +75,13 @@ LLM_MAX_CONTEXT_CHARS = int(os.getenv("LLM_MAX_CONTEXT_CHARS", "18000"))
 LLM_MAX_RETRIES = int(os.getenv("LLM_MAX_RETRIES", "3"))
 LLM_REQUEST_TIMEOUT_SECONDS = int(os.getenv("LLM_REQUEST_TIMEOUT_SECONDS", "180"))
 
+# Email config
+SMTP_HOST = os.getenv("SMTP_HOST")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USERNAME = os.getenv("SMTP_USERNAME")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
+EMAIL_SENDER = os.getenv("EMAIL_SENDER")
+EMAIL_RECIPIENT = os.getenv("EMAIL_RECIPIENT")
 
 for directory in REQUIRED_DIRS:
     directory.mkdir(parents=True, exist_ok=True)
