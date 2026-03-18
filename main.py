@@ -1,7 +1,9 @@
 from src.cloud_rds import upload_project_tables_to_rds
-from src.cloud_s3 import upload_project_outputs_to_s3
+from src.cloud_s3 import upload_bundle_and_get_link, upload_project_outputs_to_s3
 from src.config import CRYPTO_ASSETS, END_DATE, START_DATE
+from src.email_results import send_email_with_s3_link
 from src.fetch_data import fetch_crypto_data
+from src.llm_interpreter_agent import run_llm_interpreter_agent
 from src.preprocess_data import preprocess_crypto_data
 from src.eda import run_eda_pipeline
 from src.features import run_feature_engineering_pipeline
@@ -10,6 +12,7 @@ from src.retrieve_news_info import run_news_info_retrieval_pipeline
 from src.decision_engine import run_decision_engine_pipeline
 from src.manage_risk import run_risk_management_pipeline
 from src.backtest import run_backtesting_pipeline
+from src.bundle_results import run_bundle_results_pipeline
 
 
 def main() -> None:
@@ -63,11 +66,23 @@ def main() -> None:
     print("\nPortfolio backtest dataset info:")
     print(portfolio_backtest_dataframe.info())
 
+    print("\nRunning analytical interpretation agent...")
+    run_llm_interpreter_agent()
+
+    print("\nCreating final analysis bundle...")    
+    run_bundle_results_pipeline()
+    
     print("\nUploading files to AWS S3...")
     upload_project_outputs_to_s3()
 
     print("\nUploading structured summaries to AWS RDS...")
-    upload_project_tables_to_rds()
+    upload_project_tables_to_rds()    
+
+    print("\nUploading ZIP bundle and generating download link...")
+    s3_uri, download_url = upload_bundle_and_get_link()
+    
+    print("\nSending bundle download link by email...")
+    send_email_with_s3_link(download_url=download_url, s3_uri=s3_uri)
 
     print("\nFull workflow including cloud integration completed successfully.")
 
