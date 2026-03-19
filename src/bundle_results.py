@@ -66,15 +66,22 @@ def collect_bundle_files(bundle_dir: Path = BUNDLE_DIR) -> None:
     Copy the most important files into the final bundle structure.
     """
     figure_files = [
-        REPORTS_DIR / "figures" / "price_trends.png",
-        REPORTS_DIR / "figures" / "daily_returns.png",
-        REPORTS_DIR / "figures" / "rolling_volatility.png",
+        REPORTS_DIR / "figures" / "correlation_heatmap.png",
         REPORTS_DIR / "figures" / "crypto_asset_clusters.png",
+        REPORTS_DIR / "figures" / "daily_returns_subplots.png",
+        REPORTS_DIR / "figures" / "interactive_correlation_heatmap.html",
+        REPORTS_DIR / "figures" / "interactive_daily_returns.html",
+        REPORTS_DIR / "figures" / "interactive_normalized_price_trends.html",
+        REPORTS_DIR / "figures" / "interactive_rolling_volatility.html",
+        REPORTS_DIR / "figures" / "normalized_price_trends.png",
         REPORTS_DIR / "figures" / "portfolio_growth.png",
+        REPORTS_DIR / "figures" / "price_trends_subplots.png",
+        REPORTS_DIR / "figures" / "rolling_volatility_subplots.png",
         REPORTS_DIR / "figures" / "strategy_vs_benchmark.png",
     ]
 
     table_files = [
+        REPORTS_DIR / "tables" / "asset_clusters.csv",
         REPORTS_DIR / "tables" / "descriptive_statistics.csv",
         REPORTS_DIR / "tables" / "missing_values_summary.csv",
         REPORTS_DIR / "tables" / "correlation_matrix.csv",
