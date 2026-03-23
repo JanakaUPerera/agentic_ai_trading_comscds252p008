@@ -38,7 +38,8 @@ CRYPTO_ASSETS = [
 ]
 
 # Data collection date range
-START_DATE = "2015-01-01"
+startDate = date.today() - timedelta(days=(365 * 3))  # Last 3 years
+START_DATE = startDate.strftime("%Y-%m-%d")
 yesterday = date.today() - timedelta(days=1)
 END_DATE = yesterday.strftime("%Y-%m-%d")
 
