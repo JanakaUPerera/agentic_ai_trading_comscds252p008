@@ -62,6 +62,12 @@ def map_asset_news_bias_to_score(bias: str) -> int:
     }
     return bias_map.get(str(bias).strip(), 0)
 
+def map_trend_to_score(trend: int) -> int:
+    if trend == 1:
+        return 2   # strong bullish bias
+    if trend == -1:
+        return -2  # strong bearish bias
+    return 0
 
 def apply_news_category_penalty(news_signal: str) -> int:
     """
@@ -96,6 +102,16 @@ def derive_directional_news_bonus(score: float) -> int:
         return -1
     return 0
 
+def momentum_bonus(return_7d: float, return_14d: float) -> int:
+    """
+    Calculate a momentum bonus based on recent price returns.
+    """
+    if pd.notna(return_7d) and pd.notna(return_14d):
+        if return_7d > 0.05 and return_14d > 0.08:
+            return 1
+        if return_7d < -0.05 and return_14d < -0.08:
+            return -1
+    return 0
 
 def calculate_decision_components(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
@@ -108,6 +124,8 @@ def calculate_decision_components(dataframe: pd.DataFrame) -> pd.DataFrame:
     dataframe["news_bias_score"] = dataframe["asset_news_bias"].apply(map_asset_news_bias_to_score)
     dataframe["news_category_adjustment"] = dataframe["news_signal"].apply(apply_news_category_penalty)
     dataframe["directional_news_bonus"] = dataframe["directional_news_score_sum"].apply(derive_directional_news_bonus)
+    dataframe["trend_score"] = dataframe["trend_signal"].apply(map_trend_to_score)
+    dataframe["momentum_bonus"] = dataframe.apply(lambda row: momentum_bonus(row.get("return_7d", 0), row.get("return_14d", 0)), axis=1)
 
     dataframe["decision_score"] = (
         dataframe["technical_score"]
@@ -115,15 +133,63 @@ def calculate_decision_components(dataframe: pd.DataFrame) -> pd.DataFrame:
         + dataframe["news_bias_score"]
         + dataframe["news_category_adjustment"]
         + dataframe["directional_news_bonus"]
+        + dataframe["trend_score"]
+        + dataframe["momentum_bonus"]
     )
 
     return dataframe
-
 
 def apply_decision_rules(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
     Apply final Buy/Sell/Hold decision rules.
     """
+    dataframe = dataframe.copy()
+
+    final_decisions = []
+    reasons = []
+
+    for _, row in dataframe.iterrows():
+        score = float(row["decision_score"])
+        combined_signal = str(row["combined_signal"]).strip()
+        news_signal = str(row["news_signal"]).strip()
+        trend_signal = int(row.get("trend_signal", 0))
+        asset_news_bias = str(row["asset_news_bias"]).strip()
+
+        if news_signal == "Security":
+            final_decision = "Sell"
+            reason = "Security risk dominates."
+        elif news_signal == "Regulatory":
+            final_decision = "Sell"
+            reason = "Negative regulatory context and weak score."
+        elif trend_signal == 1 and score >= 3:
+            final_decision = "Buy"
+            reason = "Bull trend with supportive multi-signal score."
+        elif trend_signal == -1:
+            final_decision = "Sell"
+            reason = "Bear trend with supportive multi-signal score."
+        elif combined_signal == "Buy" and asset_news_bias in {"Negative", "Strong Negative"}:
+            final_decision = "Hold"
+            reason = "Technical buy weakened by negative asset news bias."
+        elif combined_signal == "Sell" and asset_news_bias in {"Positive", "Strong Positive"}:
+            final_decision = "Hold"
+            reason = "Technical sell softened by positive asset news bias."
+        elif score >= 5:
+            final_decision = "Buy"
+            reason = "Strong positive total decision score."
+        elif score <= -5:
+            final_decision = "Sell"
+            reason = "Strong negative total decision score."
+        else:
+            final_decision = "Hold"
+            reason = "Signal strength below trading threshold."
+
+        final_decisions.append(final_decision)
+        reasons.append(reason)
+
+    dataframe["final_decision"] = final_decisions
+    dataframe["decision_reason"] = reasons
+    return dataframe
+    
     dataframe = dataframe.copy()
 
     conditions = []

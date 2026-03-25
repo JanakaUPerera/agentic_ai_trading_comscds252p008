@@ -29,17 +29,81 @@ def load_risk_managed_data(file_path: Path = RISK_INPUT_FILE) -> pd.DataFrame:
     return dataframe
 
 
-def map_decision_to_position(decision: str) -> int:
-    """
-    Map decision to trading position.
-    Buy = 1, Hold = 0, Sell = -1
-    """
-    decision_map = {
-        "Buy": 1,
-        "Hold": 0,
-        "Sell": -1,
-    }
-    return decision_map.get(str(decision).strip(), 0)
+def map_execution_position(row: pd.Series) -> float:
+    decision = str(row.get("risk_adjusted_decision", "Hold")).strip()
+    score = float(row.get("decision_score", 0))
+    overall_risk = str(row.get("overall_risk_level", "Low")).strip()
+    trend_signal = int(row.get("trend_signal", 0))
+
+    if decision == "Hold":
+        return 0.0
+
+    if abs(score) < 2:
+        return 0.0
+    
+    if decision == "Buy":
+        if score >= 6:
+            position = 1.2
+        elif score >= 5:
+            position = 1.0
+        elif score >= 4:
+            position = 0.75
+        elif score >= 2:
+            position = 0.50
+        else:
+            position = 0.25
+
+        if overall_risk == "High" and trend_signal != 1:
+            position *= 0.50
+        elif overall_risk == "Medium":
+            position *= 0.75
+
+        if trend_signal == 1 and score >= 4:
+            position *= 2.5
+
+        return min(position, 1.5)
+
+    if decision == "Sell":
+        if score <= -6:
+            position = -1.0
+        elif score <= -4:
+            position = -0.75
+        elif score <= -2:
+            position = -0.50
+        else:
+            position = -0.25
+
+        if overall_risk == "High":
+            position *= 1.00
+        elif overall_risk == "Medium":
+            position *= 0.85
+
+        return max(position, -1.0)
+
+    return 0.0
+
+
+def apply_trend_holding(position_series: pd.Series, df_slice: pd.DataFrame) -> pd.Series:
+    positions = position_series.to_numpy(copy=True)
+
+    for i in range(1, len(positions)):
+        prev_pos = positions[i - 1]
+        trend = df_slice.iloc[i]["trend_signal"]
+        # Exit if momentum weakens
+        return_7d = df_slice.iloc[i]["return_7d"]
+
+        # If already in a long position and trend is still bullish → HOLD
+        if prev_pos > 0:
+            if trend == 1 and return_7d > -0.03:
+                positions[i] = prev_pos
+            else:
+                positions[i] = 0.0  # Early exit if momentum weakens or trend reverses
+
+        # If already in a short position and trend is bearish → HOLD
+        elif prev_pos < 0 and trend == -1:
+            positions[i] = prev_pos
+
+    return pd.Series(positions, index=position_series.index)
 
 
 def prepare_backtest_data(dataframe: pd.DataFrame) -> pd.DataFrame:
@@ -49,7 +113,11 @@ def prepare_backtest_data(dataframe: pd.DataFrame) -> pd.DataFrame:
     dataframe = dataframe.copy()
     dataframe = dataframe.sort_values(by=["ticker", "date"]).reset_index(drop=True)
 
-    dataframe["position"] = dataframe["risk_adjusted_decision"].apply(map_decision_to_position)
+    dataframe["position"] = dataframe.apply(map_execution_position, axis=1)
+    # --- Trend Holding Logic ---
+    dataframe["position"] = dataframe.groupby("ticker", group_keys=False)["position"].transform(
+        lambda group: apply_trend_holding(group, dataframe.loc[group.index])
+    )
 
     price_column = "adj_close" if "adj_close" in dataframe.columns else "close"
     dataframe["asset_return"] = dataframe.groupby("ticker")[price_column].pct_change()

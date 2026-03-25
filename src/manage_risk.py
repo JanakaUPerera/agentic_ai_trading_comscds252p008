@@ -24,34 +24,36 @@ def load_decision_data(file_path: Path = DECISION_INPUT_FILE) -> pd.DataFrame:
     dataframe["date"] = pd.to_datetime(dataframe["date"], errors="coerce")
     return dataframe
 
-
 def classify_volatility_risk(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
     Classify volatility risk level within each asset using rolling volatility quantiles.
+    (Includes Severe level while preserving original dataframe structure)
     """
     dataframe = dataframe.copy()
 
-    def classify_group(group):
-        low = group.quantile(0.33)
-        high = group.quantile(0.66)
+    def classify_group(series: pd.Series) -> pd.Series:
+        low = series.quantile(0.33)
+        high = series.quantile(0.66)
+        severe = series.quantile(0.90)
 
-        return pd.cut(
-            group,
-            bins=[-float("inf"), low, high, float("inf")],
-            labels=["Low", "Medium", "High"]
-        )
+        def classify_value(value):
+            if pd.isna(value):
+                return "Unknown"
+            if value >= severe:
+                return "Severe"
+            elif value >= high:
+                return "High"
+            elif value >= low:
+                return "Medium"
+            else:
+                return "Low"
+
+        return series.apply(classify_value)
 
     dataframe["volatility_risk_level"] = (
         dataframe.groupby("ticker")["rolling_volatility"]
         .transform(classify_group)
     )
-    
-    dataframe["volatility_risk_level"] = dataframe["volatility_risk_level"].astype(object)
-
-    dataframe.loc[
-        dataframe["rolling_volatility"].isna(),
-        "volatility_risk_level"
-    ] = "Unknown"
 
     return dataframe
 
@@ -83,30 +85,24 @@ def classify_news_risk(dataframe: pd.DataFrame) -> pd.DataFrame:
 
 def classify_position_risk(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
-    Derive position risk using volatility, recent returns, RSI, and decision score.
+    Classify position risk based on volatility, momentum extremes, and recent returns.
     """
     dataframe = dataframe.copy()
 
     def derive_position_risk(row: pd.Series) -> str:
-        volatility_risk = str(row.get("volatility_risk_level", "Unknown")).strip()
+        atr_pct = row.get("atr_pct", None)
         rsi_value = row.get("rsi_14", None)
-        decision_score = row.get("decision_score", 0)
         return_7d = row.get("return_7d", 0)
+        trend_signal = row.get("trend_signal", 0)
 
-        if volatility_risk == "High" and abs(decision_score) >= 3:
+        if pd.notna(atr_pct) and atr_pct >= 0.10:
             return "High"
-
-        if pd.notna(rsi_value):
-            if rsi_value >= 75 or rsi_value <= 25:
-                return "High"
-
-        if pd.notna(return_7d):
-            if abs(return_7d) >= 0.20:
-                return "High"
-
-        if volatility_risk == "Medium":
+        if pd.notna(rsi_value) and (rsi_value >= 80 or rsi_value <= 20) and trend_signal != 1:
+            return "High"
+        if pd.notna(return_7d) and abs(return_7d) >= 0.25:
+            return "High"
+        if pd.notna(atr_pct) and atr_pct >= 0.06:
             return "Medium"
-
         return "Low"
 
     dataframe["position_risk_level"] = dataframe.apply(derive_position_risk, axis=1)
@@ -144,6 +140,7 @@ def assign_overall_risk_level(dataframe: pd.DataFrame) -> pd.DataFrame:
 def apply_risk_overrides(dataframe: pd.DataFrame) -> pd.DataFrame:
     """
     Apply risk controls to convert raw final decisions into risk-adjusted decisions.
+    Combines broad risk coverage with stricter confirmation for high-risk buy cases.
     """
     dataframe = dataframe.copy()
 
@@ -156,25 +153,41 @@ def apply_risk_overrides(dataframe: pd.DataFrame) -> pd.DataFrame:
         news_risk = str(row.get("news_risk_level", "Unknown")).strip()
         volatility_risk = str(row.get("volatility_risk_level", "Unknown")).strip()
         position_risk = str(row.get("position_risk_level", "Unknown")).strip()
+        trend_signal = int(row.get("trend_signal", 0))
+        score = float(row.get("decision_score", 0))
 
         if overall_risk == "Severe":
-            adjusted_decision = "Hold" if raw_decision == "Buy" else "Sell"
-            adjusted_reason = "Severe risk conditions triggered protective override."
+            if raw_decision == "Buy":
+                adjusted_decision = "Hold"
+                adjusted_reason = "Severe risk blocks new long exposure."
+            else:
+                adjusted_decision = "Sell"
+                adjusted_reason = "Severe risk supports defensive sell action."
+
         elif news_risk == "High" and raw_decision == "Buy":
             adjusted_decision = "Hold"
-            adjusted_reason = "Negative news risk blocks new buy exposure."
+            adjusted_reason = "High news risk blocks new buy exposure."
+
         elif overall_risk == "High" and raw_decision == "Buy":
-            adjusted_decision = "Hold"
-            adjusted_reason = "High combined risk downgrades buy decision to hold."
+            if trend_signal == 1 and score >= 3:
+                adjusted_decision = "Buy"
+                adjusted_reason = "High risk but strong bullish trend and score allow controlled buy."
+            else:
+                adjusted_decision = "Hold"
+                adjusted_reason = "High combined risk downgrades buy decision to hold."
+
         elif volatility_risk == "High" and raw_decision == "Buy":
             adjusted_decision = "Hold"
             adjusted_reason = "High volatility risk reduces aggressive long positioning."
-        elif position_risk == "High" and raw_decision == "Buy":
+
+        elif position_risk == "High" and raw_decision == "Buy" and trend_signal != 1:
             adjusted_decision = "Hold"
-            adjusted_reason = "Position risk is high, so buy action is deferred."
+            adjusted_reason = "High position risk defers additional buy exposure."
+
         elif overall_risk == "High" and raw_decision == "Sell":
             adjusted_decision = "Sell"
             adjusted_reason = "High risk supports defensive sell decision."
+
         else:
             adjusted_decision = raw_decision
             adjusted_reason = "No additional risk override required."
@@ -275,7 +288,7 @@ def run_risk_management_pipeline() -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    # try:
+    try:
         run_risk_management_pipeline()
-    # except Exception as e:
-    #     print(f"Error running risk management pipeline: {e}")
+    except Exception as e:
+        print(f"Error running risk management pipeline: {e}")

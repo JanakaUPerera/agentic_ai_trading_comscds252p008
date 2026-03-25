@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 from ta.momentum import RSIIndicator
 from ta.trend import MACD
+from ta.volatility import AverageTrueRange
 
 from src.config import PROCESSED_DATA_DIR
 
@@ -63,6 +64,56 @@ def add_exponential_moving_averages(dataframe: pd.DataFrame) -> pd.DataFrame:
     )
 
     return dataframe
+
+
+def add_trend_regime_features(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add trend regime features based on moving average crossovers.
+    """
+    dataframe = dataframe.copy()
+
+    dataframe["ma_100"] = (
+        dataframe.groupby("ticker")["close"]
+        .transform(lambda group: group.rolling(window=100).mean())
+    )
+    dataframe["ma_200"] = (
+        dataframe.groupby("ticker")["close"]
+        .transform(lambda group: group.rolling(window=200).mean())
+    )
+
+    dataframe["trend_signal"] = 0
+    dataframe.loc[
+        (dataframe["ma_50"] > dataframe["ma_200"]) & (dataframe["close"] > dataframe["ma_50"]),
+        "trend_signal"
+    ] = 1
+
+    dataframe.loc[
+        (dataframe["ma_50"] < dataframe["ma_200"]) & (dataframe["close"] < dataframe["ma_50"]),
+        "trend_signal"
+    ] = -1
+
+    return dataframe
+
+
+def add_atr_feature(dataframe: pd.DataFrame, window: int = 14) -> pd.DataFrame:
+    """
+    Add Average True Range (ATR) as a volatility feature for each ticker.
+    """
+    atr_frames = []
+
+    for _, group in dataframe.groupby("ticker", sort=False):
+        group = group.copy()
+        atr_indicator = AverageTrueRange(
+            high=group["high"],
+            low=group["low"],
+            close=group["close"],
+            window=window,
+        )
+        group["atr_14"] = atr_indicator.average_true_range()
+        group["atr_pct"] = group["atr_14"] / group["close"]
+        atr_frames.append(group)
+
+    return pd.concat(atr_frames, ignore_index=True)
 
 
 def add_rsi(dataframe: pd.DataFrame, window: int = 14) -> pd.DataFrame:
@@ -188,6 +239,11 @@ def fill_feature_gaps(dataframe: pd.DataFrame) -> pd.DataFrame:
         "ma_7",
         "ma_21",
         "ma_50",
+        "ma_100",
+        "ma_200",
+        "trend_signal",
+        "atr_14",
+        "atr_pct",
         "ema_12",
         "ema_26",
         "rsi_14",
@@ -260,6 +316,12 @@ def run_feature_engineering_pipeline() -> pd.DataFrame:
 
     print("Adding exponential moving averages...")
     dataframe = add_exponential_moving_averages(dataframe)
+
+    print("Adding trend regime features...")
+    dataframe = add_trend_regime_features(dataframe)
+
+    print("Adding ATR volatility feature...")
+    dataframe = add_atr_feature(dataframe)
 
     print("Adding RSI...")
     dataframe = add_rsi(dataframe)
