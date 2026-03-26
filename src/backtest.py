@@ -43,15 +43,13 @@ def map_execution_position(row: pd.Series) -> float:
     
     if decision == "Buy":
         if score >= 6:
-            position = 1.2
+            position = 1.78
         elif score >= 5:
-            position = 1.0
+            position = 1.30
         elif score >= 4:
-            position = 0.75
+            position = 0.80
         elif score >= 2:
-            position = 0.50
-        else:
-            position = 0.25
+            position = 0.60
 
         if overall_risk == "High" and trend_signal != 1:
             position *= 0.50
@@ -61,7 +59,7 @@ def map_execution_position(row: pd.Series) -> float:
         if trend_signal == 1 and score >= 4:
             position *= 2.5
 
-        return min(position, 1.5)
+        return min(position, 2.0)
 
     if decision == "Sell":
         if score <= -6:
@@ -88,19 +86,19 @@ def apply_trend_holding(position_series: pd.Series, df_slice: pd.DataFrame) -> p
 
     for i in range(1, len(positions)):
         prev_pos = positions[i - 1]
-        trend = df_slice.iloc[i]["trend_signal"]
+        trend_signal = df_slice.iloc[i]["trend_signal"]
         # Exit if momentum weakens
         return_7d = df_slice.iloc[i]["return_7d"]
 
         # If already in a long position and trend is still bullish → HOLD
         if prev_pos > 0:
-            if trend == 1 and return_7d > -0.03:
+            if trend_signal == 1 and return_7d > -0.03:
                 positions[i] = prev_pos
             else:
                 positions[i] = 0.0  # Early exit if momentum weakens or trend reverses
 
         # If already in a short position and trend is bearish → HOLD
-        elif prev_pos < 0 and trend == -1:
+        elif prev_pos < 0 and trend_signal == -1:
             positions[i] = prev_pos
 
     return pd.Series(positions, index=position_series.index)
