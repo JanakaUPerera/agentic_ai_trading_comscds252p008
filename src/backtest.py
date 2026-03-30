@@ -320,21 +320,148 @@ def plot_strategy_vs_benchmark(portfolio_dataframe: pd.DataFrame) -> Path:
     """
     Plot strategy growth versus benchmark growth.
     """
+    
+    df = portfolio_dataframe.copy()
+    
     plt.figure(figsize=(12, 6))
-    plt.plot(portfolio_dataframe["date"], portfolio_dataframe["strategy_growth"], label="Strategy")
-    plt.plot(portfolio_dataframe["date"], portfolio_dataframe["benchmark_growth"], label="Benchmark")
+    plt.plot(df["date"], df["strategy_growth"], label="Strategy")
+    plt.plot(df["date"], df["benchmark_growth"], label="Benchmark")
     plt.title("Strategy vs Benchmark Growth")
     plt.xlabel("Date")
     plt.ylabel("Growth of $1")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
+    
+    plt.fill_between(
+        df["date"],
+        df["strategy_growth"],
+        df["benchmark_growth"],
+        where=(df["strategy_growth"] < df["benchmark_growth"]),
+        alpha=0.2,
+    )
 
     plt.savefig(BENCHMARK_COMPARISON_FILE, dpi=300, bbox_inches="tight")
     plt.close()
 
     print(f"Saved strategy vs benchmark plot to {BENCHMARK_COMPARISON_FILE}")
     return BENCHMARK_COMPARISON_FILE
+
+
+def calculate_drawdown_series(growth_series: pd.Series) -> pd.Series:
+    """
+    Calculate drawdown series from cumulative growth curve.
+    """
+    running_max = growth_series.cummax()
+    drawdown = (growth_series - running_max) / running_max
+    return drawdown
+
+
+def plot_drawdown_curve(portfolio_dataframe: pd.DataFrame) -> Path:
+    """
+    Plot drawdown curves for strategy and benchmark.
+    """
+    df = portfolio_dataframe.copy()
+    df["strategy_drawdown"] = calculate_drawdown_series(df["strategy_growth"])
+    df["benchmark_drawdown"] = calculate_drawdown_series(df["benchmark_growth"])
+
+    plt.figure(figsize=(12, 6))
+    plt.plot(
+        df["date"], 
+        df["strategy_drawdown"], 
+        label="Strategy Drawdown", 
+        linewidth=2
+    )
+    plt.plot(
+        df["date"],
+        df["benchmark_drawdown"],
+        label="Benchmark Drawdown",
+        linewidth=2,
+    )
+
+    plt.title("Drawdown Curve")
+    plt.xlabel("Date")
+    plt.ylabel("Drawdown")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+    plt.savefig(DRAWDOWN_CURVE_FILE, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    print(f"Saved drawdown curve to {DRAWDOWN_CURVE_FILE}")
+    return DRAWDOWN_CURVE_FILE
+
+
+def plot_return_distribution(portfolio_dataframe: pd.DataFrame) -> Path:
+    """
+    Plot return distribution of strategy and benchmark daily returns.
+    """
+    plt.figure(figsize=(12, 6))
+
+    strategy_returns = portfolio_dataframe["strategy_return"].dropna()
+    benchmark_returns = portfolio_dataframe["benchmark_return"].dropna()
+
+    plt.hist(strategy_returns, bins=50, alpha=0.6, label="Strategy Returns", density=True)
+    plt.hist(benchmark_returns, bins=50, alpha=0.6, label="Benchmark Returns", density=True)
+
+    plt.title("Return Distribution")
+    plt.xlabel("Daily Return")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+    plt.savefig(RETURN_DISTRIBUTION_FILE, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    print(f"Saved return distribution plot to {RETURN_DISTRIBUTION_FILE}")
+    return RETURN_DISTRIBUTION_FILE
+
+
+def create_win_loss_by_pair(asset_dataframe: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create win/loss summary by crypto pair.
+    A win is counted when net strategy return > 0 and a loss when < 0.
+    """
+    summary = (
+        asset_dataframe.groupby("ticker")
+        .agg(
+            win_days=("net_strategy_return", lambda values: (values > 0).sum()),
+            loss_days=("net_strategy_return", lambda values: (values < 0).sum()),
+        )
+        .reset_index()
+    )
+
+    return summary
+
+
+def plot_win_loss_by_pair(asset_dataframe: pd.DataFrame) -> Path:
+    """
+    Plot win/loss days by crypto pair.
+    """
+    summary = create_win_loss_by_pair(asset_dataframe)
+
+    x = np.arange(len(summary))
+    width = 0.35
+
+    plt.figure(figsize=(12, 6))
+    plt.bar(x - width / 2, summary["win_days"], width=width, label="Win Days")
+    plt.bar(x + width / 2, summary["loss_days"], width=width, label="Loss Days")
+
+    plt.xticks(x, summary["ticker"], rotation=45)
+    plt.title("Win/Loss by Pair")
+    plt.xlabel("Crypto Pair")
+    plt.ylabel("Number of Days")
+    plt.legend()
+    plt.grid(True, axis="y")
+    plt.tight_layout()
+
+    plt.savefig(WIN_LOSS_BY_PAIR_FILE, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    print(f"Saved win/loss by pair plot to {WIN_LOSS_BY_PAIR_FILE}")
+    return WIN_LOSS_BY_PAIR_FILE
 
 
 def run_backtesting_pipeline() -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -363,6 +490,9 @@ def run_backtesting_pipeline() -> Tuple[pd.DataFrame, pd.DataFrame]:
     print("Creating backtesting plots...")
     plot_portfolio_growth(portfolio_dataframe)
     plot_strategy_vs_benchmark(portfolio_dataframe)
+    plot_drawdown_curve(portfolio_dataframe)
+    plot_return_distribution(portfolio_dataframe)
+    plot_win_loss_by_pair(asset_dataframe)
 
     portfolio_output_file = OUTPUTS_DIR / "portfolio_daily_returns.csv"
     portfolio_dataframe.to_csv(portfolio_output_file, index=False)
