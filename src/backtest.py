@@ -13,9 +13,12 @@ from src.config import FIGURES_DIR, OUTPUTS_DIR, TABLES_DIR
 RISK_INPUT_FILE = OUTPUTS_DIR / "market_data_with_risk_controls.csv"
 BACKTEST_OUTPUT_FILE = OUTPUTS_DIR / "backtest_results.csv"
 BACKTEST_SUMMARY_FILE = TABLES_DIR / "backtest_summary.csv"
+
 PORTFOLIO_CURVE_FILE = FIGURES_DIR / "portfolio_growth.png"
 BENCHMARK_COMPARISON_FILE = FIGURES_DIR / "strategy_vs_benchmark.png"
-
+DRAWDOWN_CURVE_FILE = FIGURES_DIR / "drawdown_curve.png"
+RETURN_DISTRIBUTION_FILE = FIGURES_DIR / "return_distribution.png"
+WIN_LOSS_BY_PAIR_FILE = FIGURES_DIR / "win_loss_by_pair.png"
 
 def load_risk_managed_data(file_path: Path = RISK_INPUT_FILE) -> pd.DataFrame:
     """
