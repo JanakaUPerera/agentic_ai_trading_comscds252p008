@@ -101,7 +101,7 @@ This project is structured to fully address:
    
 9. **Final Report**
    - Overall report with discussion of limitations and potential business/financial impact.
-   [agentic_ai_trading_report_comscds252p008.pdf](docs/agentic_ai_trading_report_comscds252p008.pdf)
+   [Portfolio (Agentic AI Trading) comscds252p008.pdf](docs/Portfolio%20(Agentic%20AI%20Trading)%20comscds252p008.pdf)
 
 ## Project Structure
 ```txt
@@ -169,6 +169,7 @@ This project is structured to fully address:
  ┃ ┃ ┣ 📜correlation_heatmap.png
  ┃ ┃ ┣ 📜crypto_asset_clusters.png
  ┃ ┃ ┣ 📜daily_returns_subplots.png
+ ┃ ┃ ┣ 📜drawdown_curve.png
  ┃ ┃ ┣ 📜interactive_correlation_heatmap.html
  ┃ ┃ ┣ 📜interactive_daily_returns.html
  ┃ ┃ ┣ 📜interactive_normalized_price_trends.html
@@ -176,8 +177,10 @@ This project is structured to fully address:
  ┃ ┃ ┣ 📜normalized_price_trends.png
  ┃ ┃ ┣ 📜portfolio_growth.png
  ┃ ┃ ┣ 📜price_trends_subplots.png
+ ┃ ┃ ┣ 📜return_distribution.png
  ┃ ┃ ┣ 📜rolling_volatility_subplots.png
- ┃ ┃ ┗ 📜strategy_vs_benchmark.png
+ ┃ ┃ ┣ 📜strategy_vs_benchmark.png
+ ┃ ┃ ┗ 📜win_loss_by_pair.png
  ┃ ┗ 📂tables
  ┃ ┃ ┣ 📜asset_clusters.csv
  ┃ ┃ ┣ 📜backtest_summary.csv
