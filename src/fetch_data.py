@@ -50,7 +50,7 @@ def download_single_asset(ticker: str, start_date: str, end_date: str) -> pd.Dat
         start=start_date,
         end=end_date,
         interval="1d",
-        progress=True,
+        progress=False,
         auto_adjust=False,
     )
 
