@@ -54,6 +54,10 @@ def map_execution_position(row: pd.Series) -> float:
         elif score >= 2:
             position = 0.60
 
+        atr_pct = float(row.get("atr_pct", 0))
+        if atr_pct > 0:
+            position *= 1 / (1 + atr_pct)
+        
         if overall_risk == "High" and trend_signal != 1:
             position *= 0.50
         elif overall_risk == "Medium":
