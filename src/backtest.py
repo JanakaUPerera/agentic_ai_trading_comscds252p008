@@ -90,23 +90,42 @@ def map_execution_position(row: pd.Series) -> float:
 
 def apply_trend_holding(position_series: pd.Series, df_slice: pd.DataFrame) -> pd.Series:
     positions = position_series.to_numpy(copy=True)
-
+    entry_price = None
+    
     for i in range(1, len(positions)):
         prev_pos = positions[i - 1]
+        current_price = df_slice.iloc[i]["close"]
         trend_signal = df_slice.iloc[i]["trend_signal"]
         # Exit if momentum weakens
         return_7d = df_slice.iloc[i]["return_7d"]
 
+        # Detect new entry
+        if prev_pos == 0 and positions[i] != 0:
+            entry_price = current_price
+        
         # If already in a long position and trend is still bullish → HOLD
         if prev_pos > 0:
+            # Stop-loss (hard exit)
+            if entry_price and current_price < entry_price * 0.92:
+                positions[i] = 0.0
+                entry_price = None
+                continue
+
+            # Trailing stop (lock profits)
+            if entry_price and current_price > entry_price * 1.10:
+                entry_price = current_price  # trail up
+            
             if trend_signal == 1 and return_7d > -0.03:
                 positions[i] = prev_pos
             else:
                 positions[i] = 0.0  # Early exit if momentum weakens or trend reverses
 
         # If already in a short position and trend is bearish → HOLD
-        elif prev_pos < 0 and trend_signal == -1:
-            positions[i] = prev_pos
+        elif prev_pos < 0:
+            if trend_signal == -1:
+                positions[i] = prev_pos
+            else:
+                positions[i] = 0.0
 
     return pd.Series(positions, index=position_series.index)
 
