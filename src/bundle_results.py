@@ -78,6 +78,9 @@ def collect_bundle_files(bundle_dir: Path = BUNDLE_DIR) -> None:
         REPORTS_DIR / "figures" / "price_trends_subplots.png",
         REPORTS_DIR / "figures" / "rolling_volatility_subplots.png",
         REPORTS_DIR / "figures" / "strategy_vs_benchmark.png",
+        REPORTS_DIR / "figures" / "drawdown_curve.png",
+        REPORTS_DIR / "figures" / "return_distribution.png",
+        REPORTS_DIR / "figures" / "win_loss_by_pair.png",
     ]
 
     table_files = [
