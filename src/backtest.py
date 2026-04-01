@@ -46,7 +46,7 @@ def map_execution_position(row: pd.Series) -> float:
     
     if decision == "Buy":
         if score >= 6:
-            position = 1.78
+            position = 1.80
         elif score >= 5:
             position = 1.30
         elif score >= 4:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -17,7 +17,7 @@ FEATURED_DATA_FILE = PROCESSED_DATA_DIR / "featured_crypto_data.csv"
 NEWS_HEADLINES_FILE = OUTPUTS_DIR / "crypto_news_headlines.csv"
 NEWS_SENTIMENT_FILE = OUTPUTS_DIR / "crypto_news_sentiment_summary.csv"
 MARKET_NEWS_OUTPUT_FILE = OUTPUTS_DIR / "market_data_with_news_signal.csv"
-
+NEWS_FETCH_DATE_FILE = OUTPUTS_DIR / "news_fetch_date.txt"
 
 RSS_FEEDS = {
     "cointelegraph": "https://cointelegraph.com/rss",
@@ -651,10 +651,40 @@ def save_news_sentiment_summary(
     return output_path
 
 
+def save_news_fetch_date(fetch_date: date = None) -> None:
+    """
+    Save today's date as the news fetch date so future runs know
+    which market rows are eligible to receive news signals.
+    """
+    if fetch_date is None:
+        fetch_date = date.today()
+    NEWS_FETCH_DATE_FILE.write_text(str(fetch_date), encoding="utf-8")
+    print(f"Saved news fetch date: {fetch_date}")
+
+
+def load_news_fetch_date() -> date:
+    """
+    Load the date when news was last fetched.
+    Falls back to today if the file does not exist yet.
+    """
+    if NEWS_FETCH_DATE_FILE.exists():
+        raw = NEWS_FETCH_DATE_FILE.read_text(encoding="utf-8").strip()
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            print(f"Warning: could not parse news fetch date '{raw}', defaulting to today.")
+            return date.today()
+    return date.today()
+
+
 def merge_news_signal_with_market_data(
     market_dataframe: pd.DataFrame,
     news_summary: pd.DataFrame,
+    news_fetch_date: date = None,
 ) -> pd.DataFrame:
+    if news_fetch_date is None:
+        news_fetch_date = load_news_fetch_date()
+
     merge_columns = [
         "asset",
         "headline_count",
@@ -678,13 +708,6 @@ def merge_news_signal_with_market_data(
         "asset_news_bias",
     ]
 
-    merged = market_dataframe.merge(
-        news_summary[merge_columns],
-        left_on="ticker",
-        right_on="asset",
-        how="left",
-    )
-
     fill_zero_columns = [
         "headline_count",
         "avg_category_score",
@@ -704,13 +727,43 @@ def merge_news_signal_with_market_data(
         "directional_news_score_mean",
     ]
 
-    for column in fill_zero_columns:
-        merged[column] = merged[column].fillna(0)
+    # Split market data into eligible rows (on/after fetch date) and historical rows
+    fetch_date_ts = pd.Timestamp(news_fetch_date)
+    eligible_mask = market_dataframe["date"] >= fetch_date_ts
+    eligible_rows = market_dataframe[eligible_mask].copy()
+    historical_rows = market_dataframe[~eligible_mask].copy()
 
-    merged["news_signal"] = merged["news_signal"].fillna("Neutral")
-    merged["market_impact_signal"] = merged["market_impact_signal"].fillna("Neutral")
-    merged["asset_news_bias"] = merged["asset_news_bias"].fillna("Neutral")
-    merged = merged.drop(columns=["asset"], errors="ignore")
+    print(
+        f"News merge: {eligible_mask.sum()} eligible rows (on/after {news_fetch_date}), "
+        f"{(~eligible_mask).sum()} historical rows (neutralised)."
+    )
+
+    # Merge news only onto eligible rows
+    merged_eligible = eligible_rows.merge(
+        news_summary[merge_columns],
+        left_on="ticker",
+        right_on="asset",
+        how="left",
+    )
+
+    for column in fill_zero_columns:
+        merged_eligible[column] = merged_eligible[column].fillna(0)
+
+    merged_eligible["news_signal"] = merged_eligible["news_signal"].fillna("Neutral")
+    merged_eligible["market_impact_signal"] = merged_eligible["market_impact_signal"].fillna("Neutral")
+    merged_eligible["asset_news_bias"] = merged_eligible["asset_news_bias"].fillna("Neutral")
+    merged_eligible = merged_eligible.drop(columns=["asset"], errors="ignore")
+
+    # Fill historical rows with neutral/zero values — no news contamination
+    for column in fill_zero_columns:
+        historical_rows[column] = 0
+    historical_rows["news_signal"] = "Neutral"
+    historical_rows["market_impact_signal"] = "Neutral"
+    historical_rows["asset_news_bias"] = "Neutral"
+
+    # Recombine and restore original sort order
+    merged = pd.concat([merged_eligible, historical_rows], ignore_index=True)
+    merged = merged.sort_values(by=["ticker", "date"]).reset_index(drop=True)
 
     return merged
 
@@ -723,12 +776,18 @@ def run_news_info_retrieval_pipeline(max_items_per_feed: int = 50) -> pd.DataFra
     news_dataframe = fetch_all_crypto_news(max_items_per_feed=max_items_per_feed)
     save_news_headlines(news_dataframe)
 
+    # Record the exact date this fetch happened — used to prevent look-ahead contamination
+    today = date.today()
+    save_news_fetch_date(today)
+
     print("Summarizing crypto news categories by asset...")
     news_summary = summarize_news_sentiment(news_dataframe)
     save_news_sentiment_summary(news_summary)
 
     print("Merging news classifications into market dataset...")
-    enriched_market_dataframe = merge_news_signal_with_market_data(market_dataframe, news_summary)
+    enriched_market_dataframe = merge_news_signal_with_market_data(
+        market_dataframe, news_summary, news_fetch_date=today
+    )
 
     enriched_market_dataframe.to_csv(MARKET_NEWS_OUTPUT_FILE, index=False)
     print(f"Saved market dataset with news signals to {MARKET_NEWS_OUTPUT_FILE}")
