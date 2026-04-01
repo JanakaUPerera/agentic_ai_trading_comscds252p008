@@ -189,52 +189,6 @@ def apply_decision_rules(dataframe: pd.DataFrame) -> pd.DataFrame:
     dataframe["final_decision"] = final_decisions
     dataframe["decision_reason"] = reasons
     return dataframe
-    
-    dataframe = dataframe.copy()
-
-    conditions = []
-
-    for _, row in dataframe.iterrows():
-        decision_score = row["decision_score"]
-        combined_signal = str(row["combined_signal"]).strip()
-        news_signal = str(row["news_signal"]).strip()
-        market_impact_signal = str(row["market_impact_signal"]).strip()
-        asset_news_bias = str(row["asset_news_bias"]).strip()
-
-        if news_signal == "Security":
-            final_decision = "Sell"
-            decision_reason = "Security-related news risk overrides other signals."
-        elif news_signal == "Regulatory" and market_impact_signal == "Negative":
-            final_decision = "Sell"
-            decision_reason = "Negative regulatory pressure supports a sell action."
-        elif combined_signal == "Buy" and decision_score >= 3:
-            final_decision = "Buy"
-            decision_reason = "Technical indicators and news signals align positively."
-        elif combined_signal == "Sell" and decision_score <= -3:
-            final_decision = "Sell"
-            decision_reason = "Technical indicators and news signals align negatively."
-        elif combined_signal == "Buy" and asset_news_bias in {"Negative", "Strong Negative"}:
-            final_decision = "Hold"
-            decision_reason = "Positive technical signal is weakened by negative news bias."
-        elif combined_signal == "Sell" and asset_news_bias in {"Positive", "Strong Positive"}:
-            final_decision = "Hold"
-            decision_reason = "Negative technical signal is softened by positive news bias."
-        elif decision_score >= 2:
-            final_decision = "Buy"
-            decision_reason = "Overall combined decision score is sufficiently positive."
-        elif decision_score <= -2:
-            final_decision = "Sell"
-            decision_reason = "Overall combined decision score is sufficiently negative."
-        else:
-            final_decision = "Hold"
-            decision_reason = "Signals are mixed or not strong enough for action."
-
-        conditions.append((final_decision, decision_reason))
-
-    dataframe["final_decision"] = [item[0] for item in conditions]
-    dataframe["decision_reason"] = [item[1] for item in conditions]
-
-    return dataframe
 
 
 def summarize_decisions(dataframe: pd.DataFrame) -> pd.DataFrame:
