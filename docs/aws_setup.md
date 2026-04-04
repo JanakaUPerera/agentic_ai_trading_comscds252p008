@@ -25,6 +25,12 @@ Amazon RDS PostgreSQL stores structured analytical summaries such as:
 4. Generated files are uploaded to S3.
 5. Structured summary tables are uploaded to RDS.
 
+## Environment Variables
+
+Create a `.env` file in the project root based on `.env.example` and fill in your own credentials.
+
+> Note: The repository does not include real secrets, API keys, database passwords, or private cloud credentials for security reasons.
+
 ## EC2 Setup Commands
 
 ```bash
