@@ -103,6 +103,9 @@ This project is structured to fully address:
    - Overall report with discussion of limitations and potential business/financial impact.
    [Portfolio (Agentic AI Trading) comscds252p008.pdf](docs/Portfolio%20(Agentic%20AI%20Trading)%20comscds252p008.pdf)
 
+10. **To run portfolio on EC2
+   - Go to http://54.254.190.36:8501/
+
 ## Project Structure
 ```txt
 📦agentic_ai_trading_comscds252p008
@@ -190,7 +193,26 @@ This project is structured to fully address:
  ┃ ┃ ┣ 📜descriptive_statistics.csv
  ┃ ┃ ┣ 📜missing_values_summary.csv
  ┃ ┃ ┗ 📜volatility_summary.csv
+ ┣ 📂src
+ ┃ ┣ 📜backtest.py
+ ┃ ┣ 📜bundle_results.py
+ ┃ ┣ 📜cloud_rds.py
+ ┃ ┣ 📜cloud_s3.py
+ ┃ ┣ 📜clustering.py
+ ┃ ┣ 📜config.py
+ ┃ ┣ 📜decision_engine.py
+ ┃ ┣ 📜eda.py
+ ┃ ┣ 📜email_results.py
+ ┃ ┣ 📜features.py
+ ┃ ┣ 📜fetch_data.py
+ ┃ ┣ 📜llm_interpreter_agent.py
+ ┃ ┣ 📜manage_risk.py
+ ┃ ┣ 📜preprocess_data.py
+ ┃ ┣ 📜retrieve_news_info.py
+ ┃ ┣ 📜workflow_runner.py
+ ┃ ┗ 📜__init__.py
  ┣ 📜.env
+ ┣ 📜app.py
  ┣ 📜main.py
  ┣ 📜README.md
  ┗ 📜requirements.txt
