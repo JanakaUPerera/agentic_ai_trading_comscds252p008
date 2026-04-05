@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any
+
 from src.cloud_rds import upload_project_tables_to_rds
 from src.cloud_s3 import upload_bundle_and_get_link, upload_project_outputs_to_s3
 from src.config import CRYPTO_ASSETS, END_DATE, START_DATE
@@ -15,7 +19,7 @@ from src.backtest import run_backtesting_pipeline
 from src.bundle_results import run_bundle_results_pipeline
 
 
-def main() -> None:
+def run_full_pipeline(email_recipient: str | None = None) -> dict[str, Any]:
     print("Agentic AI Trading Workflow Project")
     print(f"Assets selected: {len(CRYPTO_ASSETS)}")
     print(f"Date range: {START_DATE} to {END_DATE}")
@@ -28,38 +32,38 @@ def main() -> None:
 
     print("Fetched dataset info:")
     print(combined_dataframe.info())
-    
+
     cleaned_dataframe = preprocess_crypto_data()
-    
+
     print("\nCleaned dataset info:")
     print(cleaned_dataframe.info())
-    
+
     eda_dataframe = run_eda_pipeline()
-    
+
     print("\nEDA dataset info:")
     print(eda_dataframe.info())
-    
+
     featured_dataframe = run_feature_engineering_pipeline()
-    
+
     print("\nFeatured dataset info:")
     print(featured_dataframe.info())
-    
+
     clustered_dataframe = run_clustering_pipeline()
     print("\nClustered dataset info:")
     print(clustered_dataframe.info())
-    
+
     news_dataframe = run_news_info_retrieval_pipeline()
     print("\nNews information dataset info:")
     print(news_dataframe.info())
-    
+
     decision_dataframe = run_decision_engine_pipeline()
     print("\nDecision dataset info:")
     print(decision_dataframe.info())
-    
+
     risk_dataframe = run_risk_management_pipeline()
     print("\nRisk dataset info:")
     print(risk_dataframe.info())
-    
+
     asset_backtest_dataframe, portfolio_backtest_dataframe = run_backtesting_pipeline()
     print("\nAsset backtest dataset info:")
     print(asset_backtest_dataframe.info())
@@ -69,22 +73,39 @@ def main() -> None:
     print("\nRunning analytical interpretation agent...")
     run_llm_interpreter_agent()
 
-    print("\nCreating final analysis bundle...")    
+    print("\nCreating final analysis bundle...")
     run_bundle_results_pipeline()
-    
+
     print("\nUploading files to AWS S3...")
     upload_project_outputs_to_s3()
 
     print("\nUploading structured summaries to AWS RDS...")
-    upload_project_tables_to_rds()    
+    upload_project_tables_to_rds()
 
     print("\nUploading ZIP bundle and generating download link...")
     s3_uri, download_url = upload_bundle_and_get_link()
-    
+
     print("\nSending bundle download link by email...")
-    send_email_with_s3_link(download_url=download_url, s3_uri=s3_uri)
+    send_email_with_s3_link(
+        download_url=download_url,
+        s3_uri=s3_uri,
+        recipient_override=email_recipient,
+    )
 
     print("\nFull workflow including cloud integration completed successfully.")
+
+    return {
+        "status": "success",
+        "email_recipient": email_recipient,
+        "s3_uri": s3_uri,
+        "download_url": download_url,
+        "assets_selected": len(CRYPTO_ASSETS),
+        "start_date": START_DATE,
+        "end_date": END_DATE,
+    }
+
+def main() -> None:
+    run_full_pipeline()
 
 if __name__ == "__main__":
     main()

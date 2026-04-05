@@ -1,71 +1,55 @@
 from __future__ import annotations
 
+import os
 import smtplib
-from email.message import EmailMessage
-from src.config import (
-    SMTP_HOST,
-    SMTP_PORT,
-    SMTP_USERNAME,
-    SMTP_PASSWORD,
-    EMAIL_SENDER,
-    EMAIL_RECIPIENT,
-)
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 
-def validate_email_config() -> None:
-    required = [
-        SMTP_HOST,
-        SMTP_PORT,
-        SMTP_USERNAME,
-        SMTP_PASSWORD,
-        EMAIL_SENDER,
-        EMAIL_RECIPIENT,
-    ]
-    if not all(required):
-        raise ValueError("Missing SMTP or email configuration in .env")
+def send_email_with_s3_link(
+    download_url: str,
+    s3_uri: str,
+    recipient_override: str | None = None,
+) -> None:
+    smtp_host = os.getenv("SMTP_HOST")
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username = os.getenv("SMTP_USERNAME")
+    smtp_password = os.getenv("SMTP_PASSWORD")
+    email_sender = os.getenv("EMAIL_SENDER") or smtp_username
+    default_recipient = os.getenv("EMAIL_RECIPIENT")
 
+    recipient = recipient_override or default_recipient
+    if not recipient:
+        raise ValueError("No recipient email address provided.")
 
-def build_email_message(download_url: str, s3_uri: str) -> EmailMessage:
-    """
-    Build an email with an S3 download link.
-    """
-    message = EmailMessage()
-    message["Subject"] = "Agentic AI Trading Workflow - Final Analysis Bundle"
-    message["From"] = EMAIL_SENDER
-    message["To"] = EMAIL_RECIPIENT
+    if not smtp_host or not smtp_username or not smtp_password or not email_sender:
+        raise ValueError("Missing SMTP configuration in environment variables.")
 
-    body = f"""Hello,
+    subject = "Agentic AI Trading Workflow Results"
+    body = f"""
+Hello,
 
-The final analysis bundle for the Agentic AI Trading Workflow project is ready.
+The full Agentic AI Trading Workflow has completed successfully.
 
-S3 Location:
+S3 URI:
 {s3_uri}
 
-Temporary Download Link:
+Download Link:
 {download_url}
 
-Please note:
-- The download link is temporary and may expire.
-- The S3 object remains stored in the configured bucket.
-
-Best regards,
+Regards,
 Agentic AI Trading Workflow
-"""
+""".strip()
 
-    message.set_content(body)
-    return message
+    message = MIMEMultipart()
+    message["From"] = email_sender
+    message["To"] = recipient
+    message["Subject"] = subject
+    message.attach(MIMEText(body, "plain"))
 
-
-def send_email_with_s3_link(download_url: str, s3_uri: str) -> None:
-    """
-    Send email containing S3 link for the final analysis bundle.
-    """
-    validate_email_config()
-    message = build_email_message(download_url=download_url, s3_uri=s3_uri)
-
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+    with smtplib.SMTP(smtp_host, smtp_port) as server:
         server.starttls()
-        server.login(SMTP_USERNAME, SMTP_PASSWORD)
-        server.send_message(message)
+        server.login(smtp_username, smtp_password)
+        server.sendmail(email_sender, recipient, message.as_string())
 
-    print(f"S3 link email sent successfully to {EMAIL_RECIPIENT}")
+    print(f"Email sent successfully to {recipient}")
