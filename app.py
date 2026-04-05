@@ -45,26 +45,13 @@ if submitted:
     elif not is_valid_email(email_value):
         st.error("Please enter a valid email address.")
     else:
-        log_placeholder = st.empty()
-
         try:
-            with st.status("Running full workflow...", expanded=True) as status:
-                result, logs = run_workflow(
-                    email_recipient=email_value,
-                    log_placeholder=log_placeholder,
-                )
+            with st.spinner("Running full workflow... this may take several minutes."):
+                result, logs = run_workflow(email_value)
 
-                st.session_state.run_result = result
-                st.session_state.run_logs = logs
-
-                status.update(
-                    label="Full workflow completed successfully.",
-                    state="complete",
-                    expanded=False,
-                )
-
+            st.session_state.run_result = result
+            st.session_state.run_logs = logs
             st.success("Full workflow completed successfully.")
-
         except Exception as exc:
             st.session_state.run_logs = ""
             st.error(f"Workflow failed: {exc}")
